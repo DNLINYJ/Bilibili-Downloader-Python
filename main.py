@@ -49,7 +49,7 @@ def GetVideoCid(id_,m=0,p=0):
     if 'BV' in str(id_): #将BV/AV号转换为BV号
         bvid = id_
     else:
-        bvid = bv.enc(str(id_).replace("av","").replace("AV","").replace("aV","").replace("Av",""))
+        bvid = bv.enc(int(str(id_).replace("av","").replace("AV","").replace("aV","").replace("Av","")))
 
     search_api = f"https://api.bilibili.com/x/player/pagelist?bvid={str(bvid)}"
     cid = requests.get(url=search_api, headers = headers, verify=False)
@@ -409,16 +409,22 @@ def auto_download_video(video_url):
         "https://www.bilibili.com/bangumi/media/md",
         "https://www.bilibili.com/video/"
     ]
-    for i in range(len(base_url_list)):
-        if base_url_list[i] in video_url:
-            if i == 0 or i == 1:
-                _id = str(video_url).replace(base_url_list[i],"").split("?",1)[0].replace("/","")
-                download_md_video(GetMd_Aid_and_title(_id),_id)
-                break
-            else:
-                aid_or_bid = str(video_url).replace(base_url_list[i],"").split("?",1)[0].replace("/","")
-                download_video(GetVideoUrl(aid_or_bid)[0],GetVideoTitle(aid_or_bid)) #下载单视频
-                break
+    if "http" in video_url:
+        for i in range(len(base_url_list)):
+            if base_url_list[i] in video_url:
+                if i == 0 or i == 1:
+                    _id = str(video_url).replace(base_url_list[i],"").split("?",1)[0].replace("/","")
+                    download_md_video(GetMd_Aid_and_title(_id),_id)
+                    break
+                else:
+                    aid_or_bid = str(video_url).replace(base_url_list[i],"").split("?",1)[0].replace("/","")
+                    download_video(GetVideoUrl(aid_or_bid)[0],GetVideoTitle(aid_or_bid)) #下载单视频
+                    break
+    else:
+        if "BV" in video_url:
+            download_video(GetVideoUrl(video_url)[0],GetVideoTitle(video_url))
+        elif "AV" in video_url.upper():
+            download_video(GetVideoUrl(video_url)[0],GetVideoTitle(video_url))
 
 def auto_download_video_danmu(video_url):
     base_url_list = [
