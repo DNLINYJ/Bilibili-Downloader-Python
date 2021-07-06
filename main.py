@@ -24,7 +24,7 @@ video_file_situation = 0
 danmu_file_situation = 0
 
 headers = {
-            'cookie': "SESSDATA=3ca7478c%2C1631165198%2C8b8c1%2A31;",
+            'cookie': "",
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.72 Safari/537.36',
             'Accept': '*/*',
             'Accept-Encoding': 'gzip, deflate',
