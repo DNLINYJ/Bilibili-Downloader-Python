@@ -528,6 +528,7 @@ def menu():
         clean_command = "clear"
 
     while True:
+        os.system(clean_command)
         print("欢迎使用Bilibili下载器╰(*°▽°*)╯ 作者:菠萝小西瓜")
         print("1) 下载视频")
         print("2) 下载弹幕")
