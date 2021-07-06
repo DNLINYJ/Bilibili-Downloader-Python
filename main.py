@@ -3,6 +3,8 @@ import json
 import re
 import time
 import os
+import platform
+import sys
 import datetime
 import threading
 import bv_dec_or_enc as bv #bv 为 Bilibili的视频BV号（这里值BV和AV互转的模块）
@@ -16,8 +18,13 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 sign = '4e71bde0ffa847665c85f586ccb93b7e'
 appkey = 'ba02c181c8820321' # 为网站外链爬虫得到
 
+global video_file_situation
+global danmu_file_situation
+video_file_situation = 0
+danmu_file_situation = 0
+
 headers = {
-            'cookie': "_uuid=D588BAC5-14A9-7773-8730-F2BD65E02CE780029infoc; buvid_fp=DACDFF53-4155-4ECE-8F94-E977D2FAFC7618542infoc; SESSDATA=3ca7478c%2C1631165198%2C8b8c1%2A31; bili_jct=dddc742c4165e8f984d700bcd579a8b8; DedeUserID=100391403; DedeUserID__ckMd5=1192886b87b97aee; sid=d04p44f4; CURRENT_FNVAL=80; blackside_state=1; rpdid=|(J|)Y)mR|uR0J'uYulYuJkum; dy_spec_agreed=1; LIVE_BUVID=AUTO9716162458601286; fingerprint3=49e8e56f1ee40fda83cce50fbc6b2fc5; buvid_fp_plain=DACDFF53-4155-4ECE-8F94-E977D2FAFC7618542infoc; CURRENT_QUALITY=116; fingerprint=699a5994071063813c772856afc748bf; fingerprint_s=1df60bbe5a4a4ee8951cc9c18340f305; bp_t_offset_100391403=514532817160837889; buvid3=01568357-CFA5-4714-9D43-C71A98DA833A13412infoc; finger=b3372c5f; PVID=4; bp_video_offset_100391403=514882045246410599",
+            'cookie': "SESSDATA=3ca7478c%2C1631165198%2C8b8c1%2A31;",
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.72 Safari/537.36',
             'Accept': '*/*',
             'Accept-Encoding': 'gzip, deflate',
@@ -68,7 +75,7 @@ def GetVideoCid(id_,m=0,p=0):
                 return temp_dict
 
             temp_json = json.loads(cid.text)
-            for i in range(temp_json['data']['videos']): #输出P数和各自对应的标题
+            for i in range(len(temp_json['data'])): #输出P数和各自对应的标题
                 print("第%sP,标题为：%s"%(str(temp_json['data'][i]["page"]),str(temp_json['data'][i]['part'])))
                 # temp_json['data'][i]["page"] 视频P数
                 # temp_json['data'][i]['part'] 视频标题
@@ -157,14 +164,17 @@ def GetVideoTitle(id_):
     title = re.sub(r"[\/\\\:\*\?\"\<\>\|]","_",json_["title"])
     return title
 
-def GetDanmu_File(id_,md=0):
+def GetDanmu_File(id_, md=0, download_danmu_dir = 'download//danmu//'):
     """
     id AV号/BV号\n
     md 是否为番剧（默认为0[否]）\n
 
     """
     cid = GetVideoCid(id_)
-    download_danmu_dir = 'download//danmu//'
+
+    if type(danmu_file_situation) == list:
+        download_danmu_dir = danmu_file_situation[1]
+    
     if md != 0:
         download_danmu_dir = download_danmu_dir+"md//"+str(md)+"//"
     if os.path.exists(download_danmu_dir) == False:
@@ -195,10 +205,11 @@ def GetDanmu_File(id_,md=0):
         with open(f"{download_danmu_dir}{str(GetVideoTitle(id_))}//{str(cid[0])}-{str(cid[1])}.xml","wb+") as q:
             q.write(req.content) # req.content会把gzip和deflate的内容自动解码
 
-def download_video(url,filename,md=0):
+def download_video(url, filename, md=0, file_dir = "download//video//"):
     r = requests.get(url, headers=headers, stream=True, timeout=30)
-    # print(r.status_code, r.headers)
-    # headers = {}
+
+    if type(video_file_situation) == list:
+        file_dir = video_file_situation[1]
  
     all_thread = 1
     # 获取视频大小
@@ -211,7 +222,7 @@ def download_video(url,filename,md=0):
             filename = filename+".mp4"
         elif ".m4s" in url:
             filename = filename+".m4s"
-        file_dir = "download//video//"
+
         if md != 0:
             file_dir = file_dir+"md//"+str(md)+"//"
         if os.path.exists(file_dir) == False:
@@ -392,7 +403,7 @@ def download_md_danmu(id):
     elif temp_v == False:
         season_id = id
 
-    download_danmu_dir = "download//danmu//md//"+f"{str(season_id)}-{str(GetMD_Title(season_id))}"+"//"
+    download_danmu_dir = "download//danmu//md//" + f"{str(season_id)} - {str(GetMD_Title(season_id))}"+"//"
     if os.path.exists(download_danmu_dir) == False:
         os.makedirs(download_danmu_dir)
 
@@ -400,51 +411,149 @@ def download_md_danmu(id):
     for i in range(len(temp_list)):
         download_danmu_url = f'https://api.bilibili.com/x/v1/dm/list.so?oid={str(temp_list[i]["cid"])}'
         req = requests.get(url=download_danmu_url, headers = headers, verify=False)
-        with open(download_danmu_dir+str(i+1)+"-"+str(re.sub(r"[\/\\\:\*\?\"\<\>\|]","_",temp_list[i]["title"]))+'.xml',"w",encoding='utf-8') as q:
+        with open(download_danmu_dir + str(i + 1) + "-" + str(re.sub(r"[\/\\\:\*\?\"\<\>\|]", "_", temp_list[i]["title"])) + '.xml', "w", encoding='utf-8') as q:
             q.write(str(req.content,'utf-8')) # req.content会把gzip和deflate的内容自动解码
+
+def ep_to_season_id(_id):
+    url = "https://api.bilibili.com/pgc/view/web/season?ep_id=" + str(_id)
+    req = requests.get(url=url, headers = headers, verify=False)
+    user_choose = ""
+    rr = r"</script><script>window.__INITIAL_STATE__=([\d\D]*?);\(function"
+    title = json.loads(re.findall(rr, requests.get(url="https://www.bilibili.com/bangumi/play/ep" + str(_id), headers = headers, verify=False).text)[0])["h1Title"].split("：", 1)[1]
+    while user_choose == "":
+        print(f"您是想下载本话 {title} 吗?(Y/N)")
+        user_choose = input(">>").upper()
+        if user_choose == "Y":
+            return [ json.loads(req.text)["result"]["episodes"][int(re.findall(r"\d+", title)[0]) - 1]["bvid"] ]
+        else:
+            print("您是想下载整个番剧吗?(Y/N)")
+            user_choose = input(">>").upper()
+            if user_choose == "Y":
+                return json.loads(req.text)["result"]["season_id"]
+            else:
+                user_choose = ""
+        
 
 def auto_download_video(video_url):
     base_url_list = [
         "https://www.bilibili.com/bangumi/play/ss",
         "https://www.bilibili.com/bangumi/media/md",
-        "https://www.bilibili.com/video/"
+        "https://www.bilibili.com/video/",
+        "https://www.bilibili.com/bangumi/play/ep"
     ]
     if "http" in video_url:
         for i in range(len(base_url_list)):
             if base_url_list[i] in video_url:
                 if i == 0 or i == 1:
                     _id = str(video_url).replace(base_url_list[i],"").split("?",1)[0].replace("/","")
-                    download_md_video(GetMd_Aid_and_title(_id),_id)
+                    download_md_video(GetMd_Aid_and_title(_id), _id)
+                    break
+                elif i == 3:
+                    season_id = ep_to_season_id(str(video_url).replace(base_url_list[i],"").split("?",1)[0].replace("/",""))
+                    if type(season_id) == list:
+                        download_video(GetVideoUrl(season_id[0])[0], GetVideoTitle(season_id[0]))
+                    else:
+                        download_md_video(GetMd_Aid_and_title(season_id), season_id)
                     break
                 else:
                     aid_or_bid = str(video_url).replace(base_url_list[i],"").split("?",1)[0].replace("/","")
-                    download_video(GetVideoUrl(aid_or_bid)[0],GetVideoTitle(aid_or_bid)) #下载单视频
+                    download_video(GetVideoUrl(aid_or_bid)[0], GetVideoTitle(aid_or_bid)) #下载单视频
                     break
     else:
         if "BV" in video_url:
-            download_video(GetVideoUrl(video_url)[0],GetVideoTitle(video_url))
+            try:
+                download_video(GetVideoUrl(video_url)[0], GetVideoTitle(video_url))
+            except:
+                print("输入了不受支持的链接/字符串，请重新输入。")
         elif "AV" in video_url.upper():
-            download_video(GetVideoUrl(video_url)[0],GetVideoTitle(video_url))
+            try:
+                download_video(GetVideoUrl(video_url)[0], GetVideoTitle(video_url))
+            except:
+                print("输入了不受支持的链接/字符串，请重新输入。")
 
 def auto_download_video_danmu(video_url):
     base_url_list = [
         "https://www.bilibili.com/bangumi/play/ss",
         "https://www.bilibili.com/bangumi/media/md",
-        "https://www.bilibili.com/video/"
+        "https://www.bilibili.com/video/",
+        "https://www.bilibili.com/bangumi/play/ep"
     ]
-    for i in range(len(base_url_list)):
-        if base_url_list[i] in video_url:
-            if i == 0 or i == 1:
-                _id = str(video_url).replace(base_url_list[i],"").split("?",1)[0].replace("/","")
-                download_md_danmu(_id)
-                break
-            else:
-                aid_or_bid = str(video_url).replace(base_url_list[i],"").split("?",1)[0].replace("/","")
-                GetDanmu_File(aid_or_bid)
-                break
+    if "http" in video_url:
+        for i in range(len(base_url_list)):
+            if base_url_list[i] in video_url:
+                if i == 0 or i == 1:
+                    _id = str(video_url).replace(base_url_list[i],"").split("?",1)[0].replace("/","")
+                    download_md_danmu(_id)
+                    break
+                elif i == 3:
+                    season_id = ep_to_season_id(str(video_url).replace(base_url_list[i],"").split("?",1)[0].replace("/",""))
+                    download_md_danmu(season_id)
+                    break
+                else:
+                    aid_or_bid = str(video_url).replace(base_url_list[i],"").split("?",1)[0].replace("/","")
+                    GetDanmu_File(aid_or_bid)
+                    break
+    else:
+        if "BV" in video_url:
+            try:
+                GetDanmu_File(video_url.split("?",1)[0].replace("/",""))
+            except:
+                print("输入了不受支持的链接/字符串，请重新输入。")
+        elif "AV" in video_url.upper():
+            try:
+                download_video(video_url.split("?",1)[0].replace("/",""))
+            except:
+                print("输入了不受支持的链接/字符串，请重新输入。")
+
+
+def LoadConfiguration():
+    try:
+        with open("configuration.json", "r", encoding="utf-8") as f:
+            configuration = json.load(f)
+        if configuration["video_file_path"] != "download//video//":
+            video_file_situation = [1, configuration["video_file_path"]]
+        if configuration["danmu_file_path"] != "download//danmu//":
+            danmu_file_situation = [1, configuration["danmu_file_path"]]
+        print("读取配置文件成功。")
+    except:
+        print("读取配置文件失败！使用默认配置。")
+
+def menu():
+    system_platform = platform.system()
+    if system_platform == "Windows":
+        clean_command = "cls"
+    elif system_platform == "Linux":
+        clean_command = "clear"
+    else:
+        clean_command = "clear"
+
+    while True:
+        print("欢迎使用Bilibili下载器╰(*°▽°*)╯ 作者:菠萝小西瓜")
+        print("1) 下载视频")
+        print("2) 下载弹幕")
+        print("3) 退出")
+        user_choose = input(">>")
+
+        if user_choose == "1":
+            url = input("请输入B站视频链接或 AV/BV 号:")
+            auto_download_video(url)
+            input("请按任意键继续...")
+            os.system(clean_command)
+
+        elif user_choose == "2":
+            url = input("请输入B站视频链接或 AV/BV 号:")
+            auto_download_video_danmu(url)
+            input("请按任意键继续...")
+            os.system(clean_command)
+
+        elif user_choose == "3":
+            sys.exit(0)
+
+        else:
+            print("请输入正确的选项!")
+            input("请按任意键继续...")
+            os.system(clean_command)
 
 if __name__=='__main__':
-    # print(GetMD_Title("28232020"))
-    url = input("bilibili video url:")
-    auto_download_video(url)    
-    # print(GetVideoUrl("BV18X4y1N7Yh")[0])
+    LoadConfiguration()
+    menu()
