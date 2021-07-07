@@ -7,7 +7,7 @@ B站视频/弹幕下载器
 ## 文件介绍
 
 * `main.py`：主程序
-* `configuration.json`：默认配置文件
+* `configuration.json`：默认配置文件 video_file_path为视频文件保存路径 danmu_file_path为弹幕文件保存路径 建议使用全路径
 * `bv_dec_or_enc.py`：AV/BV号互转 Python 库 来自[知乎 - 如何看待2020年3月23日bilibili将稿件av号变更为字母数字格式的"BV号"？](https://www.zhihu.com/question/381784377/answer/1099438784)
 
 **跪求Star Orz...**
